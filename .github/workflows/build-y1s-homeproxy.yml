@@ -49,11 +49,6 @@ jobs:
           # 设置 root 密码
           (echo "${ROOT_PASSWORD}"; sleep 1; echo "${ROOT_PASSWORD}") | passwd root >/dev/null 2>&1
 
-          # ========== 常规设置 ==========
-          CONFIG_HOSTNAME="iRouter"
-          CONFIG_LUCI_LANG_zh_Hans=y
-          CONFIG_LUCI_THEME_bootstrap=y
-          
           # ========== 网络配置（纯旁路由） ==========
           uci set network.lan.ipaddr='${LAN_IP}'
           uci set network.lan.netmask='${LAN_MASK}'
@@ -102,11 +97,9 @@ jobs:
 
           PACKAGES="\
             luci \
-            luci-i18n-base-zh-cn \
+            -luci-i18n-base-zh-cn \
             -luci-app-firewall \
             luci-app-opkg \
-            -luci-app-leds \
-            -luci-app-diagnostics \
             libustream-mbedtls \
             -libustream-openssl \
             -luci-ssl \
@@ -150,8 +143,7 @@ jobs:
             -kmod-pppox \
             -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
             -block-mount -e2fsprogs \
-            -coremark -htop -nano -bash -curl -wget-ssl -ca-bundle \
-            -dnsmasq -dnsmasq-full \
+            -coremark -htop -nano -bash -curl -wget-ssl \
             -luci-proto-ppp \
             luci-app-homeproxy \
             -luci-i18n-homeproxy-zh-cn \
