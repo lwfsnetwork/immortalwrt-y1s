@@ -103,7 +103,7 @@ jobs:
           PACKAGES="\
             luci \
             luci-i18n-base-zh-cn \
-            luci-app-firewall \
+            -luci-app-firewall \
             luci-app-opkg \
             libustream-mbedtls \
             -libustream-openssl \
@@ -146,9 +146,13 @@ jobs:
             -ppp-mod-pppoe \
             -kmod-pppoe \
             -kmod-pppox \
+            -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
+            -block-mount -e2fsprogs \
+            -coremark -htop -nano -bash -curl -wget-ssl -ca-bundle \
+            -dnsmasq -dnsmasq-full \
             -luci-proto-ppp \
             luci-app-homeproxy \
-            luci-i18n-homeproxy-zh-cn \
+            -luci-i18n-homeproxy-zh-cn \
             "
 
           make image \
