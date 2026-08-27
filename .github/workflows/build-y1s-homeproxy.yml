@@ -105,6 +105,8 @@ jobs:
             luci-i18n-base-zh-cn \
             -luci-app-firewall \
             luci-app-opkg \
+            -luci-app-leds \
+            -luci-app-diagnostics \
             libustream-mbedtls \
             -libustream-openssl \
             -luci-ssl \
