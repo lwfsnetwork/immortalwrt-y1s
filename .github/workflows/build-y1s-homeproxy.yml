@@ -146,7 +146,6 @@ jobs:
             -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
             -block-mount -e2fsprogs \
             -coremark -htop -nano -bash -curl -wget-ssl \
-            -logd -klogd
             luci-app-homeproxy \
             -luci-i18n-homeproxy-zh-cn \
             "
