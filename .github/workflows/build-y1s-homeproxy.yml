@@ -1,4 +1,4 @@
-name: Build ImmortalWrt 23.05.7 Y1S
+name: Build ImmortalWrt 23.05.7 Y1S (HomeProxy + 纯旁路由)
 
 on:
   workflow_dispatch:
@@ -95,17 +95,60 @@ jobs:
         run: |
           cd ib
 
-          PACKAGES="luci luci-app-homeproxy \
-            -luci-i18n-base-zh-cn -luci-i18n-homeproxy-zh-cn \
-            -kmod-mt76 -kmod-mt76x2 -kmod-mt76-core -kmod-mt76-usb \
-            -kmod-mac80211 -kmod-cfg80211 -wpad-basic-mbedtls -wpad-basic \
-            -hostapd -hostapd-common -wpa-supplicant \
-            -ppp -ppp-mod-pppoe -kmod-pppoe \
-            -odhcp6c -odhcpd -odhcpd-ipv6only -ds-lite \
-            -luci-app-opkg -luci-proto-ipv6 -luci-app-firewall \
+          PACKAGES="\
+            luci \
+            luci-i18n-base-zh-cn \
+            -luci-app-firewall \
+            luci-app-opkg \
+            libustream-mbedtls \
+            -libustream-openssl \
+            -luci-ssl \
+            -luci-proto-ipv6 \
+            -kmod-ipv6 \
+            -kmod-leds-gpio
+            -kmod-ip6tables \
+            -odhcp6c \
+            -odhcpd-ipv6only \
+            -odhcpd \
+            -ip6tables \
+            -luci-app-attendedsysupgrade \
+            -luci-app-upnp \
+            -luci-app-ddns \
+            -luci-app-wol \
+            -wpad-basic-mbedtls \
+            -wpad-basic \
+            -wpad-openssl \
+            -wpad-wolfssl \
+            -wpad-mbedtls \
+            -hostapd-common \
+            -kmod-cfg80211 \
+            -kmod-mac80211 \
+            -kmod-mt76 \
+            -kmod-mt76-core \
+            -kmod-mt76x2 \
+            -kmod-mt76x2e \
+            -kmod-mt7603 \
+            -kmod-mt76x0e \
+            -kmod-mt7615e \
+            -kmod-mt7615-common \
+            -kmod-rt2800-pci \
+            -kmod-rt2800-soc \
+            -kmod-rt2x00-lib \
+            -kmod-rt2x00-pci \
+            -kmod-rt2x00-usb \
+            -iwinfo \
+            -wireless-regdb \
+            -ppp \
+            -ppp-mod-pppoe \
+            -kmod-pppoe \
+            -kmod-pppox \
+            -luci-proto-ppp \
             -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
             -block-mount -e2fsprogs \
             -coremark -htop -nano -bash -curl -wget-ssl \
+            -logd -klogd
+            luci-app-homeproxy \
+            -luci-i18n-homeproxy-zh-cn \
             "
 
           make image \
