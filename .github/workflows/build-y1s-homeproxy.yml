@@ -105,7 +105,7 @@ jobs:
             -luci-ssl \
             -luci-proto-ipv6 \
             -kmod-ipv6 \
-            -kmod-leds-gpio
+            -kmod-leds-gpio \
             -kmod-ip6tables \
             -odhcp6c \
             -odhcpd-ipv6only \
@@ -145,7 +145,8 @@ jobs:
             -luci-proto-ppp \
             -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
             -block-mount -e2fsprogs \
-            -coremark -htop -nano -bash -curl -wget-ssl \
+            -coremark -htop -nano -bash -curl -wget-ssl -ca-bundle \
+            -logd -klogd \
             luci-app-homeproxy \
             -luci-i18n-homeproxy-zh-cn \
             "
