@@ -144,7 +144,7 @@ jobs:
             -luci-proto-ppp \
             -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
             -block-mount -e2fsprogs \
-            -coremark -htop -nano -bash -curl -wget-ssl -ca-bundle \
+            -coremark -htop -nano -bash -curl -wget-ssl \
             luci-app-homeproxy \
             -luci-i18n-homeproxy-zh-cn \
             "
@@ -153,7 +153,7 @@ jobs:
             PROFILE="$PROFILE" \
             PACKAGES="$PACKAGES" \
             FILES="../files" \
-            DISABLED_SERVICES="odhcpd odhcp6c dnsmasq" \
+            DISABLED_SERVICES="odhcpd odhcp6c" \
             EXTRA_IMAGE_NAME="homeproxy-bypass"
 
           SYSBIN=$(find bin/targets -name "*sysupgrade.bin" | head -1)
