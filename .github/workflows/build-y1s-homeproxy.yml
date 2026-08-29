@@ -1,179 +1,113 @@
-name: Build ImmortalWrt 23.05.7 Y1S (HomeProxy + 纯旁路由)
+name: Build Y1S HomeProxy Bypass Firmware (23.05)
 
 on:
   workflow_dispatch:
-
-env:
-  IB_URL: https://downloads.immortalwrt.org/releases/23.05.7/targets/ramips/mt7620/immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64.tar.xz
-  PROFILE: lenovo_newifi-y1s
-  ROOT_PASSWORD: Mz2156822
-  LAN_IP: 192.168.222.254
-  LAN_GATEWAY: 192.168.222.1
-  LAN_MASK: 255.255.255.0
-  LAN_DNS: 192.168.222.1
+  push:
+    paths:
+      - '.github/workflows/build-y1s-homeproxy.yml'
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: 释放磁盘空间
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+      - name: 最大化磁盘空间
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
 
       - name: 安装依赖
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            build-essential libncurses-dev zlib1g-dev gawk git gettext \
-            libssl-dev xsltproc rsync wget unzip python3 file xz-utils
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3
 
-      - name: 下载并解压 ImageBuilder
+      - name: 下载 ImmortalWrt 23.05.7 Image Builder
         run: |
-          wget -q -O ib.tar.xz "$IB_URL"
-          tar -xJf ib.tar.xz
-          mv immortalwrt-imagebuilder-* ib
+          wget -q https://downloads.immortalwrt.org/releases/23.05.7/targets/ramips/mt7620/immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64.tar.xz
+          tar -xJf immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64.tar.xz
 
-      - name: 准备自定义文件（旁路由配置）
+      - name: 创建旁路由配置文件
         run: |
+          cd immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64
           mkdir -p files/etc/uci-defaults
-          cat > files/etc/uci-defaults/99-bypass << EOF
+          cat > files/etc/uci-defaults/99-bypass << 'EOF'
           #!/bin/sh
 
-          # 设置 root 密码
-          (echo "${ROOT_PASSWORD}"; sleep 1; echo "${ROOT_PASSWORD}") | passwd root >/dev/null 2>&1
+          # LAN 旁路由配置
+          uci set network.lan.ipaddr='192.168.178.254'
+          uci set network.lan.netmask='255.255.255.0'
+          uci set network.lan.gateway='192.168.178.1'
+          uci set network.lan.dns='192.168.178.1'
+          uci set network.lan.ip6assign=''
 
-          # ========== 网络配置（纯旁路由） ==========
-          uci set network.lan.ipaddr='${LAN_IP}'
-          uci set network.lan.netmask='${LAN_MASK}'
-          uci set network.lan.gateway='${LAN_GATEWAY}'
-          uci set network.lan.dns='${LAN_DNS}'
-          uci set network.lan.ip6assign='0'
-          uci set network.lan.proto='static'
+          # 删除 WAN
+          uci -q delete network.wan
+          uci -q delete network.wan6
+          uci set network.globals.ula_prefix=''
 
-          # 彻底禁用 WAN
-          uci set network.wan.disabled='1'
-          uci set network.wan6.disabled='1'
-          uci delete network.wan 2>/dev/null || true
-          uci delete network.wan6 2>/dev/null || true
-
-          # 删除 ULA
-          uci delete network.globals.ula_prefix 2>/dev/null || true
-
-          uci commit network
-
-          # ========== 关闭 DHCP ==========
+          # 关闭 DHCP
           uci set dhcp.lan.ignore='1'
-          uci set dhcp.lan.dhcpv4='disabled'
           uci set dhcp.lan.dhcpv6='disabled'
           uci set dhcp.lan.ra='disabled'
-          uci commit dhcp
+          uci set dhcp.lan.ra_management='0'
 
-          # 禁用相关服务
-          /etc/init.d/dnsmasq disable 2>/dev/null || true
-          /etc/init.d/odhcpd disable 2>/dev/null || true
-          /etc/init.d/odhcpd stop 2>/dev/null || true
+          # 关闭日志服务，减少空间占用
+          /etc/init.d/log disable 2>/dev/null
+          /etc/init.d/log stop 2>/dev/null
+          /etc/init.d/klog disable 2>/dev/null
+          /etc/init.d/klog stop 2>/dev/null
 
-          # 防火墙放行（旁路由常用）
-          uci set firewall.@defaults[0].forward='ACCEPT'
-          uci set firewall.@defaults[0].input='ACCEPT'
-          uci set firewall.@defaults[0].output='ACCEPT'
-          uci commit firewall
+          # 设置 root 密码（可自行修改）
+          echo -e "Mz2156822\nMz2156822" | passwd root
 
+          uci commit
           exit 0
           EOF
           chmod +x files/etc/uci-defaults/99-bypass
 
-      - name: 编译精简旁路由固件
-        id: compile
+      - name: 编译精简固件
         run: |
-          cd ib
-
-          PACKAGES="\
-            luci \
-            luci-i18n-base-zh-cn \
-            -luci-app-firewall \
-            luci-app-opkg \
-            libustream-mbedtls \
-            -libustream-openssl \
-            -luci-ssl \
-            -luci-proto-ipv6 \
-            -kmod-ipv6 \
-            -kmod-ip6tables \
-            -odhcp6c \
-            -odhcpd-ipv6only \
-            -odhcpd \
-            -ip6tables \
-            -luci-app-attendedsysupgrade \
-            -luci-app-upnp \
-            -luci-app-ddns \
-            -luci-app-wol \
-            -wpad-basic-mbedtls \
-            -wpad-basic \
-            -wpad-openssl \
-            -wpad-wolfssl \
-            -wpad-mbedtls \
-            -hostapd-common \
-            -kmod-cfg80211 \
-            -kmod-mac80211 \
-            -kmod-mt76 \
-            -kmod-mt76-core \
-            -kmod-mt76x2 \
-            -kmod-mt76x2e \
-            -kmod-mt7603 \
-            -kmod-mt76x0e \
-            -kmod-mt7615e \
-            -kmod-mt7615-common \
-            -kmod-rt2800-pci \
-            -kmod-rt2800-soc \
-            -kmod-rt2x00-lib \
-            -kmod-rt2x00-pci \
-            -kmod-rt2x00-usb \
-            -iwinfo \
-            -wireless-regdb \
-            -ppp \
-            -ppp-mod-pppoe \
-            -kmod-pppoe \
-            -kmod-pppox \
-            -luci-proto-ppp \
-            -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
-            -block-mount -e2fsprogs \
-            -coremark -htop -nano -bash -curl -wget-ssl \
-            luci-app-homeproxy \
-            -luci-i18n-homeproxy-zh-cn \
-            "
+          cd immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64
 
           make image \
-            PROFILE="$PROFILE" \
-            PACKAGES="$PACKAGES" \
-            FILES="../files" \
-            DISABLED_SERVICES="odhcpd odhcp6c" \
+            PROFILE="lenovo_newifi-y1s" \
+            PACKAGES="luci luci-app-homeproxy \
+            -luci-i18n-base-zh-cn -luci-i18n-homeproxy-zh-cn \
+            -kmod-mt76 -kmod-mt76x2 -kmod-mt76-core -kmod-mt76-usb \
+            -kmod-mac80211 -kmod-cfg80211 -wpad-basic-mbedtls -wpad-basic \
+            -hostapd -hostapd-common -wpa-supplicant \
+            -ppp -ppp-mod-pppoe -kmod-pppoe \
+            -odhcp6c -odhcpd -odhcpd-ipv6only -ds-lite \
+            -luci-app-opkg -luci-proto-ipv6 -luci-app-firewall \
+            -kmod-usb-core -kmod-usb2 -kmod-usb-ohci -kmod-usb-storage \
+            -block-mount -e2fsprogs \
+            -coremark -htop -nano -bash -curl -wget-ssl -ca-bundle \
+            -logd -klogd" \
+            FILES="files" \
+            DISABLED_SERVICES="odhcpd odhcp6c dnsmasq" \
             EXTRA_IMAGE_NAME="homeproxy-bypass"
 
-          SYSBIN=$(find bin/targets -name "*sysupgrade.bin" | head -1)
-          if [ -z "$SYSBIN" ]; then
-            echo "未找到 sysupgrade 固件！"
-            ls -lR bin/targets || true
+      - name: 检查固件大小
+        run: |
+          cd immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64/bin/targets/ramips/mt7620
+          ls -lh *sysupgrade.bin
+          SIZE=$(stat -c%s *sysupgrade.bin)
+          SIZE_KB=$((SIZE / 1024))
+          echo "固件大小: ${SIZE_KB} KB ($((SIZE / 1024 / 1024)) MB)"
+          
+          if [ $SIZE -gt 16200000 ]; then
+            echo "❌ 固件超过 15.5MB，风险较高"
             exit 1
+          elif [ $SIZE -gt 15500000 ]; then
+            echo "⚠️ 固件超过 15.1MB，建议优先测试能否刷入"
+          else
+            echo "✅ 大小合格"
           fi
-
-          SIZE=$(stat -c%s "$SYSBIN")
-          echo "========================================"
-          echo "Firmware: $SYSBIN"
-          echo "Size: $((SIZE/1024/1024)).$(( (SIZE%1048576)/1024 )) MB ($SIZE bytes)"
-          echo "========================================"
-
-          echo "sysbin=$SYSBIN" >> $GITHUB_OUTPUT
 
       - name: 上传固件
         uses: actions/upload-artifact@v4
         with:
-          name: immortalwrt-23.05.7-y1s-homeproxy-bypass
-          path: ib/bin/targets/ramips/mt7620/*sysupgrade.bin
+          name: y1s-homeproxy-bypass-23.05.7
+          path: immortalwrt-imagebuilder-23.05.7-ramips-mt7620.Linux-x86_64/bin/targets/ramips/mt7620/*sysupgrade.bin
           retention-days: 30
